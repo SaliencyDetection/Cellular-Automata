@@ -1,4 +1,5 @@
-base_path = '/Users/Kuhn/Dropbox/Study/UCSD 2015 Fall/CSE 253 Neural Network/project/cellar_automata/ca_python/'
+import os
+base_path = os.getcwd()
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
