@@ -1,4 +1,4 @@
-base_path = '/Users/Kuhn/Dropbox/Study/UCSD 2015 Fall/CSE 253 Neural Network/project/cellar_automata/code/'
+base_path = '/Users/Kuhn/Dropbox/Study/UCSD 2015 Fall/CSE 253 Neural Network/project/cellar_automata/ca_python/'
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -14,12 +14,16 @@ import pdb
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
 
-def get_background_indexs(image, output_image_path, quantile=0.3):
+def get_background_indexs(image, output_image_path, quantile=0.15, ignored_indexs=None):
     # not a gray scale
+    if ignored_indexs is None:
+        ignored_indexs = []
     if len(image.shape)>2 and image.shape[2] > 1:
         image = rgb2gray(image) 
     
     image_flat = image.flatten()
+    # set as maximum to be ignored
+    image_flat[ignored_indexs] = 2.0
     indexs = np.argsort(image_flat)[:quantile*image_flat.size]
     
     background_image_flat = np.ones((image.shape[0]*image.shape[1]))
@@ -31,12 +35,15 @@ def get_background_indexs(image, output_image_path, quantile=0.3):
     
     return indexs
     
-def get_foreground_indexs(image, output_image_path, quantile=0.01):
+def get_foreground_indexs(image, output_image_path, quantile=0.01, ignored_indexs=None):
+    if ignored_indexs is None:
+        ignored_indexs = []
     # not a gray scale
     if len(image.shape)>2 and image.shape[2] > 1:
         image = rgb2gray(image) 
     
     image_flat = image.flatten()
+    image_flat[ignored_indexs] = -1.0
     indexs = np.argsort(image_flat,)[-quantile*image_flat.size:]
 
     foreground_image_flat = np.ones((image.shape[0]*image.shape[1]))
@@ -48,7 +55,10 @@ def get_foreground_indexs(image, output_image_path, quantile=0.01):
     
     return indexs
 
-def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=5, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3):    
+def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=5, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, threshold=0.5, ignored_indexs=None):
+    if ignored_indexs is None:
+        ignored_indexs = []
+    
     start = time.time()
 
     height, width = image.shape[0], image.shape[1]
@@ -78,7 +88,7 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
     start = done
 
     D = np.asmatrix(np.diag(np.asarray(np.sum(F, axis=1)).flatten()))
-    
+
     F_star = inv(D)*F
 
     C_diag = np.asarray(np.divide(1, np.max(F, axis=1))).flatten()
@@ -86,7 +96,13 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
     C_star_diag = a*(C_diag-C_min)/(C_max-C_min)+b
     C_star = np.asmatrix(np.diag(C_star_diag))
     
-    S_0 = np.asmatrix(0.5*np.ones((N, 1)))
+    # S_0 = np.asmatrix(0.5*np.ones((N, 1)))
+    # S_0 = np.np.asarray(S_0).flatten()[ignored_indexs] = 0.1
+
+    pdb.set_trace()
+    S_0 = 0.5*np.ones((N, 1))
+    S_0[ignored_indexs] = 0.1
+    S_0 = np.asmatrix(S_0)
     S = S_0
 
     func = lambda x: 1. if x > 1. else (0. if x < 0. else x)
@@ -117,26 +133,30 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
     output_image_path = output_image_path[:-4]+'-'+str(mask_size)+output_image_path[-4:]
     print "Image saved at", output_image_path
     output_image_PIL.save(output_image_path)
-    
+
+    output_image_flat = np.asarray(output_image).flatten()
+    saliency_indexs = [i for i in xrange(len(output_image_flat)) if output_image_flat[i] > threshold]
+    return saliency_indexs
+
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        raise ValueError("Please input the image file and salient file")
+        raise ValueError("Please input the image file and saliency file")
 
-    image_file, salient_image_file = sys.argv[1], sys.argv[2]
+    image_file, saliency_image_file = sys.argv[1], sys.argv[2]
 
     input_image_path = base_path+image_file
-    salient_image_path = base_path+salient_image_file
-    output_image_path = base_path+'saliencymap/'+salient_image_file.split('/')[-1][:-4]+'.bmp'
+    saliency_image_path = base_path+saliency_image_file
+    output_image_path = base_path+'saliencymap/'+saliency_image_file.split('/')[-1][:-4]+'.bmp'
 
     # convert jpg to png
     if input_image_path[-4:] == '.jpg':
         image = Image.open(input_image_path)
         input_image_path = input_image_path[:-4]+'.png'
         image.save(input_image_path)
-    if salient_image_path[-4:] == '.jpg':
-        image = Image.open(salient_image_path)
-        salient_image_path = salient_image_path[:-4]+'.png'
-        image.save(salient_image_path)
+    if saliency_image_path[-4:] == '.jpg':
+        image = Image.open(saliency_image_path)
+        saliency_image_path = saliency_image_path[:-4]+'.png'
+        image.save(saliency_image_path)
 
     # resize the image
     if len(sys.argv) > 3:
@@ -144,21 +164,21 @@ if __name__ == '__main__':
         new_width = int(sys.argv[4])
 
         image = Image.open(input_image_path)
-        salient_image = Image.open(salient_image_path)
+        saliency_image = Image.open(saliency_image_path)
 
         image = image.resize((new_width, new_height), Image.ANTIALIAS)
-        salient_image =salient_image.resize((new_width, new_height), Image.ANTIALIAS)
+        saliency_image =saliency_image.resize((new_width, new_height), Image.ANTIALIAS)
 
         input_image_path = input_image_path[:-4]+'-'+str(new_height)+'-'+str(new_width)+input_image_path[-4:]
         image.save(input_image_path)
-        salient_image_path = salient_image_path[:-4]+'-'+str(new_height)+'-'+str(new_width)+salient_image_path[-4:]
-        salient_image.save(salient_image_path)
-        output_image_path = base_path+'saliencymap/'+salient_image_file.split('/')[-1][:-4]+'-'+str(new_height)+'-'+str(new_width)+'.bmp'
+        saliency_image_path = saliency_image_path[:-4]+'-'+str(new_height)+'-'+str(new_width)+saliency_image_path[-4:]
+        saliency_image.save(saliency_image_path)
+        output_image_path = base_path+'saliencymap/'+saliency_image_file.split('/')[-1][:-4]+'-'+str(new_height)+'-'+str(new_width)+'.bmp'
 
     image = mpimg.imread(input_image_path)
-    salient_image = mpimg.imread(salient_image_path)
+    saliency_image = mpimg.imread(saliency_image_path)
 
-    foreground_indexs = get_foreground_indexs(salient_image, output_image_path) 
-    background_indexs = get_background_indexs(salient_image, output_image_path) 
+    foreground_indexs = get_foreground_indexs(saliency_image, output_image_path) 
+    background_indexs = get_background_indexs(saliency_image, output_image_path) 
 
     cellular_automata(image, foreground_indexs, background_indexs, output_image_path)
