@@ -1,5 +1,5 @@
 import os
-base_path = os.getcwd()
+base_path = os.getcwd()+'/'
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
