@@ -10,7 +10,9 @@ import matplotlib.cm as cm
 import time
 from PIL import Image
 import sys
+import math
 import pdb
+
 
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
@@ -56,7 +58,7 @@ def get_foreground_indexs(image, output_image_path, quantile=0.01, ignored_index
     
     return indexs
 
-def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=5, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, threshold=0.5, ignored_indexs=None):
+def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=5, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, threshold=0.75, ignored_indexs=None):
     if ignored_indexs is None:
         ignored_indexs = []
     
@@ -126,7 +128,7 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
         print "Norm of difference:", LA.norm(S_new-S)
         S = S_new
 
-    output_image = S.reshape(height, width, 1)
+    output_image = S.reshape(width, height, 1)
     # plt.imshow(output_image, cmap = cm.Greys_r, vmin = 0, vmax = 1)
     # plt.show()
     output_image_PIL = Image.fromarray((output_image*255.).astype(np.uint8))
@@ -136,14 +138,52 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
 
     output_image_flat = np.asarray(output_image).flatten()
     saliency_indexs = [i for i in xrange(len(output_image_flat)) if output_image_flat[i] > threshold]
+    
     return saliency_indexs
+
+
+
+def cut_saliency(indexs, image, new_height, new_width, old_height, old_width, after_cut_name):
+    
+    xy_map = lambda i: (i%new_width, i/new_width)
+    index_map = lambda (x, y): y*old_width+x
+    
+
+    ratio = float(old_width)/new_width
+    # xy_scale = lambda (x, y): [(x_s, y_s) for x_s in range(int(math.ceil(x*ratio)), 
+    #                                                        int(math.floor((x+1)*ratio)-(math.floor((x+1)*ratio)==math.ceil((x+1)*ratio)))+1) 
+    #                                       for y_s in range(int(math.ceil(y*ratio)), 
+    #                                                        int(math.floor((x+1)*ratio)-(math.floor((y+1)*ratio)==math.ceil((y+1)*ratio)))+1)] 
+    xy_scale = lambda (x, y): [(x_s, y_s) for x_s in range(int(math.ceil(x*ratio)), 
+                                                           int(math.floor((x+1)*ratio-0.0000001))+1) 
+                                          for y_s in range(int(math.ceil(y*ratio)), 
+                                                           int(math.floor((y+1)*ratio-0.0000001))+1)] 
+    if old_width > new_width:
+        new_xy = map(xy_map, indexs)
+        old_xy = map(xy_scale, new_xy)
+        old_xy = reduce(lambda x, y: x+y, old_xy)
+        old_indexs = map(index_map, old_xy)
+
+    rgb_indexs = [[index*3, index*3+1, index*3+2] for index in old_indexs]
+    rgb_indexs = reduce(lambda x, y: x+y, rgb_indexs)
+
+    image_flatten = image.flatten()
+    image_flatten[rgb_indexs] = 0.0
+    image_after_cut = image_flatten.reshape(old_width, old_height, 3)
+
+    # save the image
+    output_image_PIL = Image.fromarray((image_after_cut*255.).astype(np.uint8))
+    print "Image saved at", after_cut_name
+    output_image_PIL.save(after_cut_name)
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         raise ValueError("Please input the image file and saliency file")
 
     image_file, saliency_image_file = sys.argv[1], sys.argv[2]
-    output_directory = sys.argv[5]
+    after_cut_name = sys.argv[3]
+
+    output_directory = sys.argv[6]
     
     input_image_path = base_path+image_file
     saliency_image_path = base_path+saliency_image_file
@@ -161,13 +201,17 @@ if __name__ == '__main__':
 
     # resize the image
 
-    new_height = int(sys.argv[3])
-    new_width = int(sys.argv[4])
+    new_height = int(sys.argv[4])
+    new_width = int(sys.argv[5])
 
     if new_height > 0 and new_width > 0:
-        
+        old_image = mpimg.imread(input_image_path)
+
         image = Image.open(input_image_path)
         saliency_image = Image.open(saliency_image_path)
+        
+        old_width = image.width
+        old_height = image.height
 
         image = image.resize((new_width, new_height), Image.ANTIALIAS)
         saliency_image =saliency_image.resize((new_width, new_height), Image.ANTIALIAS)
@@ -185,4 +229,10 @@ if __name__ == '__main__':
     foreground_indexs = get_foreground_indexs(saliency_image, output_image_path) 
     background_indexs = get_background_indexs(saliency_image, output_image_path) 
 
-    cellular_automata(image, foreground_indexs, background_indexs, output_image_path)
+    saliency_indexs = cellular_automata(image, foreground_indexs, background_indexs, output_image_path)
+    
+    if new_height > 0 and new_width > 0:
+        cut_saliency(saliency_indexs, old_image, new_height, new_width, old_height, old_width, after_cut_name)
+    else:
+        cut_saliency(saliency_indexs, old_image, 0, 0, 0, 0, after_cut_name)
+
