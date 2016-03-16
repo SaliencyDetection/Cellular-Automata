@@ -100,7 +100,6 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
     # S_0 = np.asmatrix(0.5*np.ones((N, 1)))
     # S_0 = np.np.asarray(S_0).flatten()[ignored_indexs] = 0.1
 
-    pdb.set_trace()
     S_0 = 0.5*np.ones((N, 1))
     S_0[ignored_indexs] = 0.1
     S_0 = np.asmatrix(S_0)
@@ -144,10 +143,11 @@ if __name__ == '__main__':
         raise ValueError("Please input the image file and saliency file")
 
     image_file, saliency_image_file = sys.argv[1], sys.argv[2]
-
+    output_directory = sys.argv[5]
+    
     input_image_path = base_path+image_file
     saliency_image_path = base_path+saliency_image_file
-    output_image_path = base_path+'saliencymap/'+saliency_image_file.split('/')[-1][:-4]+'.bmp'
+    output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'.bmp'
 
     # convert jpg to png
     if input_image_path[-4:] == '.jpg':
@@ -160,10 +160,12 @@ if __name__ == '__main__':
         image.save(saliency_image_path)
 
     # resize the image
-    if len(sys.argv) > 3:
-        new_height = int(sys.argv[3])
-        new_width = int(sys.argv[4])
 
+    new_height = int(sys.argv[3])
+    new_width = int(sys.argv[4])
+
+    if new_height > 0 and new_width > 0:
+        
         image = Image.open(input_image_path)
         saliency_image = Image.open(saliency_image_path)
 
@@ -174,7 +176,8 @@ if __name__ == '__main__':
         image.save(input_image_path)
         saliency_image_path = saliency_image_path[:-4]+'-'+str(new_height)+'-'+str(new_width)+saliency_image_path[-4:]
         saliency_image.save(saliency_image_path)
-        output_image_path = base_path+'saliencymap/'+saliency_image_file.split('/')[-1][:-4]+'-'+str(new_height)+'-'+str(new_width)+'.bmp'
+
+        output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'-'+str(new_height)+'-'+str(new_width)+'.bmp'
 
     image = mpimg.imread(input_image_path)
     saliency_image = mpimg.imread(saliency_image_path)
