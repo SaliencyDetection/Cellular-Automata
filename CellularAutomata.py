@@ -183,11 +183,13 @@ if __name__ == '__main__':
     image_file, saliency_image_file = sys.argv[1], sys.argv[2]
     after_cut_name = sys.argv[3]
 
-    output_directory = sys.argv[6]
+    output_image_name = sys.argv[6]
+    # output_directory = sys.argv[6]
     
     input_image_path = base_path+image_file
     saliency_image_path = base_path+saliency_image_file
-    output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'.bmp'
+    # output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'.bmp'
+    output_image_path = base_path+output_image_name
 
     # convert jpg to png
     if input_image_path[-4:] == '.jpg':
@@ -221,7 +223,7 @@ if __name__ == '__main__':
         saliency_image_path = saliency_image_path[:-4]+'-'+str(new_height)+'-'+str(new_width)+saliency_image_path[-4:]
         saliency_image.save(saliency_image_path)
 
-        output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'-'+str(new_height)+'-'+str(new_width)+'.bmp'
+        # output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'-'+str(new_height)+'-'+str(new_width)+'.bmp'
 
     image = mpimg.imread(input_image_path)
     saliency_image = mpimg.imread(saliency_image_path)
