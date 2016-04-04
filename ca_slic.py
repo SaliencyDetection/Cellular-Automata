@@ -20,9 +20,6 @@ import matplotlib.pyplot as plt
 import argparse
 
 
-def rgb2gray(rgb):
-    return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
-
 def get_background_indexs(image, output_image_path, quantile=0.15, ignored_indexs=None):
     # not a gray scale
     if ignored_indexs is None:
