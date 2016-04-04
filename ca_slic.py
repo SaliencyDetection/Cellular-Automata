@@ -68,7 +68,7 @@ def unique_append(l, e):
     if e not in l:
         l.append(e)
 
-def get_superpixel(image, num_segments=100):
+def get_superpixel(image, num_segments=300):
     """
     Args:
         image(N*M array):
@@ -135,14 +135,26 @@ def get_super_index(labels, foreground_indexs, background_indexs):
     for index in foreground_indexs:
         unique_append(super_foreground_indexs, labels_flatten[index])
 
+    # pdb.set_trace()
     # remove overlap from background
-    super_background_indexs = [index for index in super_background_indexs if index not in foreground_indexs]
+    super_background_indexs = [index for index in super_background_indexs if index not in super_foreground_indexs]
 
     return super_foreground_indexs, super_background_indexs
 
 def get_salience_indexs(saliency, threshold=0.75):
     saliency_flatten = saliency.flatten()
     return [i for i in xrange(len(saliency_flatten)) if saliency_flatten[i] > threshold]
+
+def get_fg_bg(labels, fg_indexs, bg_indexs):
+    labels_flatten = labels.flatten()
+    image_flatten = 0.5*np.ones(labels_flatten.shape)
+
+    for index in fg_indexs:
+        image_flatten[np.argwhere(labels_flatten==index)] = 1.
+    for index in bg_indexs:
+        image_flatten[np.argwhere(labels_flatten==index)] = 0.
+
+    return image_flatten.reshape(labels.shape)
 
 def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3):
     """
@@ -237,6 +249,10 @@ if __name__ == '__main__':
 
     labels, neighbors, rgbs = get_superpixel(image)
     super_foreground_indexs, super_background_indexs = get_super_index(labels, foreground_indexs, background_indexs)
+
+    fg_bg_image = get_fg_bg(labels, super_foreground_indexs, super_background_indexs)
+    # plt.imshow(fg_bg_image, cmap=plt.get_cmap('gray'))
+    # plt.show()
 
     super_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs)
     saliency = get_saliency(labels, super_saliency)
