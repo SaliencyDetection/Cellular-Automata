@@ -166,7 +166,7 @@ def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, 
 
     F = np.asmatrix(np.zeros((N, N)))
     f = lambda c1, c2: np.exp(-LA.norm(c1-c2)/(sigma_3_square))
-    scale_to_1 = lambda x: (x-np.min(x))/(np.max(x)-np.min(x))
+    scale_to_1 = lambda x: (x-np.min(x))/(np.max(x)-np.min(x)) if (np.max(x)-np.min(x))!=0 else 0
     other_indexs = [i for i in range(N) if (i not in fg_indexs and i not in bg_indexs)]
     
     for i in xrange(len(neighbors)):
@@ -192,8 +192,10 @@ def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, 
         S[bg_indexs] += bg_bias
     
         S_new = C_star*S + (np.identity(N)-C_star)*F_star*S
+
         if len(other_indexs) > 0:
             S_new[other_indexs] = scale_to_1(S_new[other_indexs])
+        
         S_new = np.vectorize(func)(S_new)
 
         print i, "iteration"
