@@ -1,6 +1,8 @@
 import os
 base_path = os.getcwd()+'/'
+SHOW_IMG = True
 
+import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
@@ -23,7 +25,23 @@ import argparse
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
 
-def get_background_indexs(image, output_image_path, quantile=0.15, ignored_indexs=None):
+def get_super_background_indexs(image, quantile=0.35, ignored_indexs=None):
+    # not a gray scale
+    if ignored_indexs is None:
+        ignored_indexs = []
+
+    image = np.asarray(image)
+    if len(image.shape)>2 and image.shape[2] > 1:
+        image = rgb2gray(image)
+
+    image_flat = image.flatten()
+    # set as maximum to be ignored
+    image_flat[ignored_indexs] = 2.0
+    indexs = np.argsort(image_flat)[:quantile*image_flat.size]
+    
+    return indexs
+
+def get_background_indexs(image, output_image_path, quantile=0.35, ignored_indexs=None):
     # not a gray scale
     if ignored_indexs is None:
         ignored_indexs = []
@@ -43,8 +61,8 @@ def get_background_indexs(image, output_image_path, quantile=0.15, ignored_index
     output_image_PIL.save(output_image_path)
     
     return indexs
-    
-def get_foreground_indexs(image, output_image_path, quantile=0.01, ignored_indexs=None):
+
+def get_foreground_indexs(image, output_image_path, quantile=0.05, ignored_indexs=None):
     if ignored_indexs is None:
         ignored_indexs = []
     # not a gray scale
@@ -64,11 +82,25 @@ def get_foreground_indexs(image, output_image_path, quantile=0.01, ignored_index
     
     return indexs
 
+def get_super_foreground_indexs(image, quantile=0.05, ignored_indexs=None):
+    if ignored_indexs is None:
+        ignored_indexs = []
+    # not a gray scale
+    image = np.asarray(image)
+    if len(image.shape)>2 and image.shape[2] > 1:
+        image = rgb2gray(image) 
+    
+    image_flat = image.flatten()
+    image_flat[ignored_indexs] = -1.0
+    indexs = np.argsort(image_flat,)[-quantile*image_flat.size:]
+
+    return indexs
+
 def unique_append(l, e):
     if e not in l:
         l.append(e)
 
-def get_superpixel(image, num_segments=300):
+def get_superpixel(image, num_segments=500):
     """
     Args:
         image(N*M array):
@@ -76,6 +108,8 @@ def get_superpixel(image, num_segments=300):
     Returns:
         labels(N*M array), new_neighbors(n*[int]), new_rgb(n*[int, int, int])
     """
+
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
 
     (N, M, _) = image.shape
 
@@ -113,6 +147,24 @@ def get_superpixel(image, num_segments=300):
 
     return labels, new_neighbors, new_rgb
 
+def get_supersaliency(labels, saliency_image):
+    if len(saliency_image.shape)>2 and saliency_image.shape[2] > 1:
+        saliency_image = rgb2gray(saliency_image) 
+
+    labels_flatten = labels.flatten()
+    saliency_flatten = saliency_image.flatten()
+
+    n_labels = np.max(labels)+1
+    super_saliency = n_labels*[0]
+    label_count = n_labels*[0]
+
+    for i in xrange(n_labels):
+        indexs = np.argwhere(labels_flatten==i)
+        super_saliency[i] = np.mean(saliency_flatten[indexs])
+
+    return super_saliency
+
+
 def get_super_index(labels, foreground_indexs, background_indexs):
     """
     Args:
@@ -130,6 +182,7 @@ def get_super_index(labels, foreground_indexs, background_indexs):
     n_labels = np.max(labels)+1
     super_background_indexs = []
     super_foreground_indexs = []
+
     for index in background_indexs:
         unique_append(super_background_indexs, labels_flatten[index])
     for index in foreground_indexs:
@@ -229,14 +282,28 @@ def cut_saliency(image, salience_indexs):
     return flatten.reshape(image.shape)
 
 if __name__ == '__main__':
+    '''
+    args:
+        argv[1]: Image file
+        argv[2]: Saliency map file
+        argv[3]: Result image(after cut) file
+        argv[4]: Refined saliency map file
+        argv[5]: Number of segments of superpixel
+        argv[6]: Foreground quantile
+        argv[7]: Background quantile
+        argv[8]: Show intermediate image for debugging
+    '''
     if len(sys.argv) < 3:
         raise ValueError("Please input the image file and saliency file")
 
     image_file, saliency_image_file = sys.argv[1], sys.argv[2]
     after_cut_name = sys.argv[3]
-
     output_image_name = sys.argv[4]
-    # output_directory = sys.argv[6]
+
+    n_segments = int(sys.argv[5])
+    fg_quantile = float(sys.argv[6])
+    bg_quantile = float(sys.argv[7])
+    SHOW_IMG = (1==int(sys.argv[8]))
     
     input_image_path = base_path+image_file
     saliency_image_path = base_path+saliency_image_file
@@ -245,25 +312,42 @@ if __name__ == '__main__':
 
     image = img_as_float(io.imread(input_image_path))
     saliency_image = img_as_float(io.imread(saliency_image_path))
+    # image = img_as_float(cv2.cvtColor(image, cv2.COLOR_BGR2LAB))
 
     foreground_indexs = get_foreground_indexs(saliency_image, output_image_path) 
     background_indexs = get_background_indexs(saliency_image, output_image_path) 
 
-    labels, neighbors, rgbs = get_superpixel(image)
-    super_foreground_indexs, super_background_indexs = get_super_index(labels, foreground_indexs, background_indexs)
+    labels, neighbors, rgbs = get_superpixel(image, num_segments=n_segments)
+    super_saliency = get_supersaliency(labels, saliency_image)
+    saliency = get_saliency(labels, super_saliency)
+    if SHOW_IMG:
+        plt.imshow(saliency, cmap=plt.get_cmap('gray'))
+        plt.show()
+
+    # super_foreground_indexs, super_background_indexs = get_super_index(labels, foreground_indexs, background_indexs)
+    super_foreground_indexs = get_super_foreground_indexs(super_saliency, quantile=fg_quantile)
+    super_background_indexs = get_super_background_indexs(super_saliency, quantile=bg_quantile)
 
     fg_bg_image = get_fg_bg(labels, super_foreground_indexs, super_background_indexs)
-    # plt.imshow(fg_bg_image, cmap=plt.get_cmap('gray'))
-    # plt.show()
+    if SHOW_IMG:
+        plt.imshow(fg_bg_image, cmap=plt.get_cmap('gray'))
+        plt.show()
 
-    super_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs)
-    saliency = get_saliency(labels, super_saliency)
+    super_refined_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs)
+    refined_saliency = get_saliency(labels, super_refined_saliency)
 
-    # plt.imshow(saliency, cmap=plt.get_cmap('gray'))
-    # plt.show()
+    if SHOW_IMG:
+        plt.imshow(refined_saliency, cmap=plt.get_cmap('gray'))
+        plt.show()
 
-    io.imsave(output_image_path, saliency)
+    salience_indexs = get_salience_indexs(refined_saliency, threshold=0.75)
+    after_cut_img = cut_saliency(image, salience_indexs)
+    if SHOW_IMG:
+        plt.imshow(after_cut_img)
+        plt.show()
 
-    salience_indexs = get_salience_indexs(saliency, threshold=0.75)
+    # io.imsave(output_image_path, refined_saliency)
 
-    io.imsave(after_cut_name, cut_saliency(image, salience_indexs))
+    # salience_indexs = get_salience_indexs(refined_saliency, threshold=0.75)
+
+    # io.imsave(after_cut_name, cut_saliency(image, salience_indexs))
