@@ -346,8 +346,8 @@ if __name__ == '__main__':
         plt.imshow(after_cut_img)
         plt.show()
 
-    # io.imsave(output_image_path, refined_saliency)
+    io.imsave(output_image_path, refined_saliency)
 
-    # salience_indexs = get_salience_indexs(refined_saliency, threshold=0.75)
+    salience_indexs = get_salience_indexs(refined_saliency, threshold=0.75)
 
-    # io.imsave(after_cut_name, cut_saliency(image, salience_indexs))
+    io.imsave(after_cut_name, cut_saliency(image, salience_indexs))
