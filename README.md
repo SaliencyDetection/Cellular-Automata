@@ -16,5 +16,5 @@ python ca_slic.py test/cat_origin.jpg test/cat_saliency.jpg test/cat_origin_afte
         argv[5](int):   Number of segments of superpixel
         argv[6](float): Foreground quantile
         argv[7](float): Background quantile
-        argv[8](bool):  Show intermediate image for debugging
+        argv[8](bool):  Save intermediate image for debugging
     
