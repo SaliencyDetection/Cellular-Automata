@@ -291,7 +291,7 @@ if __name__ == '__main__':
         argv[5]: Number of segments of superpixel
         argv[6]: Foreground quantile
         argv[7]: Background quantile
-        argv[8]: Show intermediate image for debugging
+        argv[8]: Save intermediate image for debugging
     '''
     if len(sys.argv) < 3:
         raise ValueError("Please input the image file and saliency file")
@@ -303,7 +303,8 @@ if __name__ == '__main__':
     n_segments = int(sys.argv[5])
     fg_quantile = float(sys.argv[6])
     bg_quantile = float(sys.argv[7])
-    SHOW_IMG = (1==int(sys.argv[8]))
+    SAVE_INTERMEDIATE_IMG = (1==int(sys.argv[8]))
+    SHOW_IMG = False
     
     input_image_path = base_path+image_file
     saliency_image_path = base_path+saliency_image_file
@@ -320,6 +321,9 @@ if __name__ == '__main__':
     labels, neighbors, rgbs = get_superpixel(image, num_segments=n_segments)
     super_saliency = get_supersaliency(labels, saliency_image)
     saliency = get_saliency(labels, super_saliency)
+    
+    if SAVE_INTERMEDIATE_IMG:
+        io.imsave(image_file[:-4]+'_saliency'+image_file[-4:], saliency)
     if SHOW_IMG:
         plt.imshow(saliency, cmap=plt.get_cmap('gray'))
         plt.show()
@@ -329,6 +333,9 @@ if __name__ == '__main__':
     super_background_indexs = get_super_background_indexs(super_saliency, quantile=bg_quantile)
 
     fg_bg_image = get_fg_bg(labels, super_foreground_indexs, super_background_indexs)
+    
+    if SAVE_INTERMEDIATE_IMG:
+        io.imsave(image_file[:-4]+'_fg_bg_image'+image_file[-4:], fg_bg_image)
     if SHOW_IMG:
         plt.imshow(fg_bg_image, cmap=plt.get_cmap('gray'))
         plt.show()
@@ -347,7 +354,4 @@ if __name__ == '__main__':
         plt.show()
 
     io.imsave(output_image_path, refined_saliency)
-
-    salience_indexs = get_salience_indexs(refined_saliency, threshold=0.75)
-
-    io.imsave(after_cut_name, cut_saliency(image, salience_indexs))
+    io.imsave(after_cut_name, after_cut_img)
