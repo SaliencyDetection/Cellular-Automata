@@ -291,7 +291,9 @@ if __name__ == '__main__':
         argv[5]: Number of segments of superpixel
         argv[6]: Foreground quantile
         argv[7]: Background quantile
-        argv[8]: Save intermediate image for debugging
+        argv[8]: Foreground bias
+        argv[9]: Background bias
+        argv[10]: Save intermediate image for debugging
     '''
     if len(sys.argv) < 3:
         raise ValueError("Please input the image file and saliency file")
@@ -303,7 +305,9 @@ if __name__ == '__main__':
     n_segments = int(sys.argv[5])
     fg_quantile = float(sys.argv[6])
     bg_quantile = float(sys.argv[7])
-    SAVE_INTERMEDIATE_IMG = (1==int(sys.argv[8]))
+    fg_bias = float(sys.argv[8])
+    bg_bias = float(sys.argv[9])
+    SAVE_INTERMEDIATE_IMG = (1==int(sys.argv[10]))
     SHOW_IMG = False
     
     input_image_path = base_path+image_file
@@ -340,7 +344,7 @@ if __name__ == '__main__':
         plt.imshow(fg_bg_image, cmap=plt.get_cmap('gray'))
         plt.show()
 
-    super_refined_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs)
+    super_refined_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs, fg_bias=fg_bias, bg_bias=bg_bias)
     refined_saliency = get_saliency(labels, super_refined_saliency)
 
     if SHOW_IMG:
