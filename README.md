@@ -18,4 +18,4 @@ python ca_slic.py test/cat_origin.jpg test/cat_saliency.jpg test/cat_origin_afte
         argv[7](float): Background quantile
         argv[8](float): Foreground bias
         argv[9](float): Background bias
-        argv[10](bool): Show intermediate image for debugging
+        argv[10](bool): Save intermediate image for debugging
