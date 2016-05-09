@@ -2,7 +2,6 @@ import os
 base_path = os.getcwd()+'/'
 SHOW_IMG = True
 
-import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
