@@ -144,10 +144,13 @@ def cellular_automata(image, fg_indexs, bg_indexs, output_image_path, mask_size=
     
     return saliency_indexs
 
-def get_local_weights(image, fg_indexs, bg_indexs, output_image_path, mask_size=5, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, threshold=0.75, ignored_indexs=None):
+def get_local_weights(image, fg_indexs, bg_indexs, output_image_path, mask_size=49, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, threshold=0.75, ignored_indexs=None):
     if ignored_indexs is None:
         ignored_indexs = []
     
+    if mask_size % 2 != 1:
+        raise Exception("mask size has too be odd")
+
     start = time.time()
 
     padding_size = mask_size/2
@@ -193,7 +196,7 @@ def get_local_weights(image, fg_indexs, bg_indexs, output_image_path, mask_size=
     print "Done. ", done - start, "seconds."
     start = done
 
-    return saliency_indexs
+    return 
 
 
 def cut_saliency(indexs, image, new_height, new_width, old_height, old_width, after_cut_name):
@@ -281,10 +284,12 @@ if __name__ == '__main__':
     foreground_indexs = get_foreground_indexs(saliency_image, output_image_path) 
     background_indexs = get_background_indexs(saliency_image, output_image_path) 
 
-    saliency_indexs = cellular_automata(image, foreground_indexs, background_indexs, output_image_path)
+    get_local_weights(image, foreground_indexs, background_indexs, output_image_path)
+
+    # saliency_indexs = cellular_automata(image, foreground_indexs, background_indexs, output_image_path)
     
-    if new_height > 0 and new_width > 0:
-        cut_saliency(saliency_indexs, old_image, new_height, new_width, old_height, old_width, after_cut_name)
-    else:
-        cut_saliency(saliency_indexs, old_image, 0, 0, 0, 0, after_cut_name)
+    # if new_height > 0 and new_width > 0:
+    #     cut_saliency(saliency_indexs, old_image, new_height, new_width, old_height, old_width, after_cut_name)
+    # else:
+    #     cut_saliency(saliency_indexs, old_image, 0, 0, 0, 0, after_cut_name)
 
