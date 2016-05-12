@@ -235,15 +235,15 @@ def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, 
     
     S_0 = 0.5*np.ones((N, 1))
     S_0 = np.asmatrix(S_0)
-    S = S_0
+    S_new = S = S_0
 
     func = lambda x: 1. if x > 1. else (0. if x < 0. else x)
     
     for i in xrange(num_step):
-        S[fg_indexs] += fg_bias
-        S[bg_indexs] += bg_bias
+        S_new[fg_indexs] += fg_bias
+        S_new[bg_indexs] += bg_bias
     
-        S_new = C_star*S + (np.identity(N)-C_star)*F_star*S
+        S_new = C_star*S_new + (np.identity(N)-C_star)*F_star*S_new
 
         if len(other_indexs) > 0:
             S_new[other_indexs] = scale_to_1(S_new[other_indexs])
