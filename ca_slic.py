@@ -382,8 +382,8 @@ def main():
                             Refined saliency map file (output)
       -ns NUM_SEGMENTS, --num_segments NUM_SEGMENTS
                             Number of segments of superpixel
-      -fq FG_QUANTILE, --fg_quantile FG_QUANTILE
-                            Foreground quantile
+      -fql FG_QUANTILE_LIST, --fg_quantile FG_QUANTILE
+                            Foreground quantile list
       -bq BG_QUANTILE, --bg_quantile BG_QUANTILE
                             Background quantile
       -fb FG_BIAS, --fg_bias FG_BIAS
@@ -401,7 +401,7 @@ def main():
     parser.add_argument('-sl', '--saliency_list', nargs='+', type=str, help="Saliency map file list")
     parser.add_argument('-rsl', '--output_saliency_list', nargs='+', type=str, help="Refined saliency map file (output)")
     parser.add_argument('-ns', '--n_segments', type=int, help="Number of segments of superpixel")
-    parser.add_argument('-fql', '--fg_quantile_list', nargs='+', type=float, help="Foreground quantile")
+    parser.add_argument('-fql', '--fg_quantile_list', nargs='+', type=float, help="Foreground quantile list")
     parser.add_argument('-bq', '--bg_quantile', type=float, help="Background quantile")
     parser.add_argument('-fb', '--fg_bias', type=float, help="Foreground bias")
     parser.add_argument('-bb', '--bg_bias', type=float, help="Background bias")
