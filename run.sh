@@ -7,4 +7,4 @@ python ca_slic.py source/origin_0241.jpg source/saliency_label3_0241.jpg source/
 
 python CellularAutomata.py test/cat_origin.jpg test/cat_saliency.jpg test/cat_origin_after_cut.png saliencymap/refined_saliency_cat_origin.png 0 0
 
-python ca_slic.py -i source/origin_0241.jpg -sl source/saliency_label3_0241.jpg -rsl saliencymap/refined_saliency_label3_0241.png -ns 500 -fq 0.05 -bq 0.25 -fb 0.5 -bb -0.3 -d
+python ca_slic.py -i source/origin_0241.jpg -sl source/saliency_label3_0241.jpg -rsl saliencymap/refined_saliency_label3_0241.png -ns 500 -fql 0.05 -bq 0.25 -fb 0.5 -bb -0.3 -d
