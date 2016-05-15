@@ -467,7 +467,6 @@ def main():
     else:
         super_image_feature = None
     
-    pdb.set_trace()
     saliency_list = [get_saliency(labels, super_saliency)
                       for super_saliency in super_saliency_list]
 
