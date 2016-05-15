@@ -163,6 +163,24 @@ def get_supersaliency(labels, saliency_image):
 
     return super_saliency
 
+def get_superfeature(labels, image_feature):
+    # TODO
+
+    labels_flatten = labels.flatten()
+    image_feature_flatten = image_feature.reshape((labels_flatten.shape[0], image_feature.shape[-1]))
+
+    n_labels = np.max(labels)+1
+    super_feature = n_labels*[0]
+
+    super_feature = np.zeros((n_labels, image_feature.shape[-1]))
+    label_count = n_labels*[0]
+
+    for i in xrange(n_labels):
+        indexs = np.argwhere(labels_flatten==i)
+        indexs = indexs[:, 0]
+        super_feature[i, :] = np.mean(image_feature_flatten[indexs, :], axis=0)
+
+    return super_feature
 
 def get_super_index(labels, foreground_indexs, background_indexs):
     """
@@ -208,7 +226,7 @@ def get_fg_bg(labels, fg_indexs, bg_indexs):
 
     return image_flatten.reshape(labels.shape)
 
-def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3):
+def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, image_feature=None):
     """
 
     Returns:
@@ -221,9 +239,12 @@ def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, 
     scale_to_1 = lambda x: (x-np.min(x))/(np.max(x)-np.min(x)) if (np.max(x)-np.min(x))!=0 else 0
     other_indexs = [i for i in range(N) if (i not in fg_indexs and i not in bg_indexs)]
     
+    if image_feature is None:
+        image_feature = rgbs
+
     for i in xrange(len(neighbors)):
         for j in neighbors[i]:
-            F[j, i] = F[i, j] = f(rgbs[i,:], rgbs[j, :])
+            F[j, i] = F[i, j] = f(image_feature[i,:], image_feature[j, :])
         D = np.asmatrix(np.diag(np.asarray(np.sum(F, axis=1)).flatten()))
 
     F_star = inv(D)*F
@@ -281,52 +302,54 @@ def cut_saliency(image, salience_indexs):
     return flatten.reshape(image.shape)
 
 if __name__ == '__main__':
-    '''
-    args:
-        argv[1]: Image file
-        argv[2]: Saliency map file
-        argv[3]: Result image(after cut) file
-        argv[4]: Refined saliency map file
-        argv[5]: Number of segments of superpixel
-        argv[6]: Foreground quantile
-        argv[7]: Background quantile
-        argv[8]: Foreground bias
-        argv[9]: Background bias
-        argv[10]: Save intermediate image for debugging
-    '''
-    if len(sys.argv) < 3:
-        raise ValueError("Please input the image file and saliency file")
+    parser = argparse.ArgumentParser()
 
-    image_file, saliency_image_file = sys.argv[1], sys.argv[2]
-    after_cut_name = sys.argv[3]
-    output_image_name = sys.argv[4]
+    parser.add_argument('-i', '--image', type=str, help="Image file")
+    parser.add_argument('-f', '--image_feature', type=str, help="Image feature file, optional")
+    parser.add_argument('-s', '--saliency', type=str, help="Result image(after cut) file")
+    parser.add_argument('-ac', '--after_cut', type=str, help="Image feature file, optional")
+    parser.add_argument('-rs', '--output_saliency', type=str, help="Refined saliency map file (output)")
+    parser.add_argument('-ns', '--n_segments', type=int, help="Number of segments of superpixel")
+    parser.add_argument('-fq', '--fg_quantile', type=float, help="Foreground quantile list")
+    parser.add_argument('-bq', '--bg_quantile', type=float, help="Background quantile")
+    parser.add_argument('-fb', '--fg_bias', type=float, help="Foreground bias")
+    parser.add_argument('-bb', '--bg_bias', type=float, help="Background bias")
+    parser.add_argument('-d', '--debug', action='store_true', help="Save intermediate image for debugging")
 
-    n_segments = int(sys.argv[5])
-    fg_quantile = float(sys.argv[6])
-    bg_quantile = float(sys.argv[7])
-    fg_bias = float(sys.argv[8])
-    bg_bias = float(sys.argv[9])
-    SAVE_INTERMEDIATE_IMG = (1==int(sys.argv[10]))
+    n_segments = parser.parse_args().n_segments
+    fg_quantile = parser.parse_args().fg_quantile
+    bg_quantile = parser.parse_args().bg_quantile
+    fg_bias = parser.parse_args().fg_bias
+    bg_bias = parser.parse_args().bg_bias
+    SAVE_INTERMEDIATE_IMG = parser.parse_args().debug
     SHOW_IMG = False
-    
-    input_image_path = base_path+image_file
-    saliency_image_path = base_path+saliency_image_file
-    # output_image_path = base_path+output_directory+'/'+saliency_image_file.split('/')[-1][:-4]+'.bmp'
-    output_image_path = base_path+output_image_name
+
+    input_image_path = base_path+parser.parse_args().image
+    saliency_image_path = base_path+parser.parse_args().saliency
+    after_cut_path = base_path+parser.parse_args().after_cut
+    output_image_path = base_path+parser.parse_args().output_saliency
 
     image = img_as_float(io.imread(input_image_path))
     saliency_image = img_as_float(io.imread(saliency_image_path))
-    # image = img_as_float(cv2.cvtColor(image, cv2.COLOR_BGR2LAB))
+    if parser.parse_args().image_feature:
+        image_feature = np.load(base_path+parser.parse_args().image_feature)
+    else:
+        image_feature = None
 
     foreground_indexs = get_foreground_indexs(saliency_image, output_image_path) 
     background_indexs = get_background_indexs(saliency_image, output_image_path) 
 
     labels, neighbors, rgbs = get_superpixel(image, num_segments=n_segments)
     super_saliency = get_supersaliency(labels, saliency_image)
+    if image_feature is not None:
+        super_image_feature = get_superfeature(labels, image_feature)
+    else:
+        super_image_feature = None
+
     saliency = get_saliency(labels, super_saliency)
     
     if SAVE_INTERMEDIATE_IMG:
-        io.imsave(image_file[:-4]+'_saliency'+image_file[-4:], saliency)
+        io.imsave(input_image_path[:-4]+'_saliency'+input_image_path[-4:], saliency)
     if SHOW_IMG:
         plt.imshow(saliency, cmap=plt.get_cmap('gray'))
         plt.show()
@@ -338,12 +361,12 @@ if __name__ == '__main__':
     fg_bg_image = get_fg_bg(labels, super_foreground_indexs, super_background_indexs)
     
     if SAVE_INTERMEDIATE_IMG:
-        io.imsave(image_file[:-4]+'_fg_bg_image'+image_file[-4:], fg_bg_image)
+        io.imsave(input_image_path[:-4]+'_fg_bg_image'+input_image_path[-4:], fg_bg_image)
     if SHOW_IMG:
         plt.imshow(fg_bg_image, cmap=plt.get_cmap('gray'))
         plt.show()
 
-    super_refined_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs, fg_bias=fg_bias, bg_bias=bg_bias)
+    super_refined_saliency = ca(neighbors, rgbs, super_foreground_indexs, super_background_indexs, fg_bias=fg_bias, bg_bias=bg_bias, image_feature=super_image_feature)
     refined_saliency = get_saliency(labels, super_refined_saliency)
 
     if SHOW_IMG:
@@ -357,4 +380,4 @@ if __name__ == '__main__':
         plt.show()
 
     io.imsave(output_image_path, refined_saliency)
-    io.imsave(after_cut_name, after_cut_img)
+    io.imsave(after_cut_path, after_cut_img)

@@ -163,6 +163,24 @@ def get_supersaliency(labels, saliency_image):
 
     return super_saliency
 
+def get_superfeature(labels, image_feature):
+    # TODO
+
+    labels_flatten = labels.flatten()
+    image_feature_flatten = image_feature.reshape((labels_flatten.shape[0], image_feature.shape[-1]))
+
+    n_labels = np.max(labels)+1
+    super_feature = n_labels*[0]
+
+    super_feature = np.zeros((n_labels, image_feature.shape[-1]))
+    label_count = n_labels*[0]
+
+    for i in xrange(n_labels):
+        indexs = np.argwhere(labels_flatten==i)
+        indexs = indexs[:, 0]
+        super_feature[i, :] = np.mean(image_feature_flatten[indexs, :], axis=0)
+
+    return super_feature
 
 def get_super_index(labels, foreground_indexs, background_indexs):
     """
@@ -263,7 +281,7 @@ def ca(neighbors, rgbs, fg_indexs, bg_indexs, sigma_3_square=0.1, a=0.6, b=0.2, 
 
     return S
 
-def ca_multilabel(neighbors, rgbs, super_saliency_list, fg_indexs_list, bg_indexs_list, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3):
+def ca_multilabel(neighbors, rgbs, super_saliency_list, fg_indexs_list, bg_indexs_list, sigma_3_square=0.1, a=0.6, b=0.2, num_step=10, fg_bias=0.3, bg_bias=-0.3, image_feature=None):
     """
 
     Returns:
@@ -282,10 +300,12 @@ def ca_multilabel(neighbors, rgbs, super_saliency_list, fg_indexs_list, bg_index
     scale_to_1 = lambda x: (x-np.min(x))/(np.max(x)-np.min(x)) if (np.max(x)-np.min(x))!=0 else 0
 
     # other_indexs = [i for i in range(N) if (i not in fg_indexs and i not in bg_indexs)]
-    
+    if image_feature is None:
+        image_feature = rgbs
+        
     for i in xrange(len(neighbors)):
         for j in neighbors[i]:
-            F[j, i] = F[i, j] = f(rgbs[i,:], rgbs[j, :])
+            F[j, i] = F[i, j] = f(image_feature[i,:], image_feature[j, :])
         D = np.diag(np.asarray(np.sum(F, axis=1)).flatten())
 
     F_star = inv(D).dot(F)
@@ -398,6 +418,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-i', '--image', type=str, help="Image file")
+    parser.add_argument('-f', '--image_feature', type=str, help="Image feature file, optional")
     parser.add_argument('-sl', '--saliency_list', nargs='+', type=str, help="Saliency map file list")
     parser.add_argument('-rsl', '--output_saliency_list', nargs='+', type=str, help="Refined saliency map file (output)")
     parser.add_argument('-ns', '--n_segments', type=int, help="Number of segments of superpixel")
@@ -416,6 +437,11 @@ def main():
     SHOW_IMG = False
     
     input_image_path = base_path+parser.parse_args().image
+    if parser.parse_args().image_feature:
+        image_feature_path = base_path+parser.parse_args().image_feature
+    else:
+        image_feature_path = None
+
     saliency_image_path_list = [base_path+saliency_image 
                                  for saliency_image in parser.parse_args().saliency_list]
     output_saliency_list = [base_path+output_saliency 
@@ -424,6 +450,11 @@ def main():
     n_labels = len(saliency_image_path_list)
 
     image = img_as_float(io.imread(input_image_path))
+    if image_feature_path:
+        image_feature = np.load(image_feature_path)
+    else:
+        image_feature = None
+
     saliency_image_list = [img_as_float(io.imread(saliency_image_path)) 
                             for saliency_image_path in saliency_image_path_list]
     # image = img_as_float(cv2.cvtColor(image, cv2.COLOR_BGR2LAB))
@@ -431,9 +462,16 @@ def main():
     labels, neighbors, rgbs = get_superpixel(image, num_segments=n_segments)
     super_saliency_list = [get_supersaliency(labels, saliency_image)
                             for saliency_image in saliency_image_list]
+    if image_feature is not None:
+        super_image_feature = get_superfeature(labels, image_feature)
+    else:
+        super_image_feature = None
+    
+    pdb.set_trace()
     saliency_list = [get_saliency(labels, super_saliency)
                       for super_saliency in super_saliency_list]
-    
+
+
     if SAVE_INTERMEDIATE_IMG:
         for i in xrange(n_labels):
             io.imsave(saliency_image_path_list[i][:-4]+'_saliency.png', saliency_list[i])
@@ -459,7 +497,7 @@ def main():
             plt.imshow(fg_bg_image_list[i], cmap=plt.get_cmap('gray'))
             plt.show()
 
-    super_refined_saliency_array = ca_multilabel(neighbors, rgbs, super_saliency_list, super_foreground_indexs_list, super_background_indexs_list, fg_bias=fg_bias, bg_bias=bg_bias)
+    super_refined_saliency_array = ca_multilabel(neighbors, rgbs, super_saliency_list, super_foreground_indexs_list, super_background_indexs_list, fg_bias=fg_bias, bg_bias=bg_bias, image_feature=super_image_feature)
 
     refined_saliency_list = []
     for i in xrange(n_labels+1):
